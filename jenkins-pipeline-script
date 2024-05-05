@@ -1,0 +1,111 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage('Git Clone on jenkins') {
+            agent {
+                label 'node1'
+            }
+            steps {
+                git branch: 'main', url: 'https://github.com/Abhay956/NFT-Store.git'        
+            }
+        }
+
+        stage('Trivy Scan') {
+            agent {
+                label 'node1'
+            }
+            steps {
+                sh 'trivy image docker.io/centos:7' 
+            }
+        }
+    
+        stage('Docker build') {
+            agent {
+                label 'node1'
+            }
+            steps {
+                sh 'docker build -t abhaypande/nft-store:$BUILD_NUMBER .' 
+            }
+        }
+        
+        stage('Docker push') {
+            agent {
+                label 'node1'
+            }
+            steps {
+                script {
+                    sh 'docker push abhaypande/nft-store:$BUILD_NUMBER'
+                }
+            }
+        }
+        
+        stage('Trivy Scan NFT-Store-image') {
+            agent {
+                label 'node1'
+            }
+            steps {
+                sh 'trivy image abhaypande/nft-store:$BUILD_NUMBER' 
+            }
+        }
+        
+        stage('Git Clone on node01') {
+            agent {
+                label 'node01'
+            }
+            steps {
+                git branch: 'main', url: 'https://github.com/Abhay956/NFT-Store.git'        
+            }
+        }
+        
+        stage('Modify Deployment') {
+            agent {
+                label 'node01'
+            }
+            steps {
+                script {
+                    sh "sed -i 's|image: abhaypande/nft-store|image: abhaypande/nft-store:$BUILD_NUMBER|' nft-store.yml"
+                }
+            }
+        }
+      
+        stage('Deployment') {
+            agent {
+                label 'node01'
+            }
+            steps {
+                script {
+                    sh 'kubectl apply -f nft-store.yml'
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            emailext (
+                subject: "Project1 Pipeline Status: ${BUILD_NUMBER}",
+                body: """
+                    <html>
+                        <body>
+                            <p>Build Number: ${BUILD_NUMBER}</p>
+                            <p>Build Status: ${currentBuild.currentResult}</p>
+                            <p>Check the <a href="${BUILD_URL}">console output</a>.</p>
+                        <ul>
+                            <li>Git Repository: https://github.com/Abhay956/NFT-Store.git</li>
+                            <li>Branch: main</li>
+                            <li>Trivy Scan: ${currentBuild.currentResult}</li>
+                            <li>Docker Image: abhaypande/nft-store:${BUILD_NUMBER}</li>
+                            <li>Deployment: ${currentBuild.currentResult}</li>
+                        </ul>
+                        </body>
+                    </html>
+                """,
+                to: 'abhaypande956@gmail.com',
+                from: 'jenkins@gmail.com',
+                replyTo: 'jenkins@gmail.com',
+                mimeType: 'text/html'
+            )
+        }
+    }
+}
