@@ -19,8 +19,8 @@ spec:
         app: dep1
     spec:
       containers:
-      - image: abhaypande/jenkins
-        name: nfs-store-container
+      - image: abhaypande/nft-store
+        name: nft-store-container
 ---
 ---
 apiVersion: v1
@@ -31,7 +31,7 @@ spec:
   selector:
     app: dep1
   ports:
-    nodePort: 30000
+  - nodePort: 30000
     port: 8082
     targetPort: 8888
   type: NodePort
